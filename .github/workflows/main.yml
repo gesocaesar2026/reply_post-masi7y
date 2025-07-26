@@ -1,0 +1,38 @@
+name: Facebook Auto Reply
+
+on:
+  schedule:
+    - cron: '2 * * * *'   # كل ساعة في الدقيقة 2 (بتوقيت UTC)
+  workflow_dispatch:       # لتشغيل يدويًا
+
+jobs:
+  reply:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        persist-credentials: true
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.11
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Run bot
+      env:
+        ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        PAGE_ID: ${{ secrets.PAGE_ID }}
+      run: python main.py
+
+    - name: Commit replied posts file
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git add replied_posts.json
+        git commit -m "🤖 Update replied posts list" || echo "Nothing to commit"
+        git push
