@@ -1,59 +1,69 @@
+import os
 import requests
 import json
-import random
-import os
 
+# مفاتيح API
+GEMINI_API_KEY = "AIzaSyDybAXRfYv832CWNwY7rrVt_YNfYmkHpz8"
 ACCESS_TOKEN = "EAAUmqjbT57QBOwSa4J28Rm37Ur8YE6tMVyePK6SVcROQZCn2Dt56NzTNmZCuQZAaPsOwUVaTamiZAu3BZCEmfta8BlVZAOaZBVL0wtorZCQNTErMpBPVwZByXbFR5CGauocAXfCYlWMQhLPJoAZAsxkID4tOsxWga4v4Sne2XyzZBW68TRHXZBsL4KAWqmRJJc2xqf0gwOjUxieZCdLZAZCRzzhAf1x"
 PAGE_ID = "137537863058927"
-REPLIED_FILE = "replied_posts.json"
 
-# تحميل الرسائل
-with open("messages.txt", "r", encoding="utf-8") as f:
-    MESSAGES = [line.strip() for line in f if line.strip()]
+def generate_message():
+    print("🎯 جاري توليد رسالة مؤثرة من الرب يسوع بواسطة Gemini...")
 
-# تحميل المنشورات التي تم الرد عليها
-if os.path.exists(REPLIED_FILE):
-    with open(REPLIED_FILE, "r") as f:
-        replied_posts = json.load(f)
-else:
-    replied_posts = []
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
 
-def get_last_posts():
-    url = f"https://graph.facebook.com/v19.0/{PAGE_ID}/posts"
-    params = {
-        "access_token": ACCESS_TOKEN,
-        "limit": 5
+    prompt = """
+    من فضلك اكتب رسالة مؤثرة وكأنها من الرب يسوع إلى القارئ، بأسلوب حنون ومشجع ولمس للمشاعر.
+    اجعلها شخصية تبدأ بنداء مثل "يا ابني" أو "يا ابنتي" وتكلم كأن المسيح يخاطب شخصًا مجروحًا ويشجعه.
+    لا تضع آيات، فقط اجعلها رسالة مشجعة، لا تزيد عن 500 حرف، باللهجة المصرية الخفيفة المقبولة روحيًا.
+    """
+
+    headers = {"Content-Type": "application/json"}
+    data = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": prompt}
+                ]
+            }
+        ]
     }
-    response = requests.get(url, params=params)
-    return response.json().get("data", [])
 
-def reply_to_post(post_id, message):
-    url = f"https://graph.facebook.com/v19.0/{post_id}/comments"
-    payload = {
+    response = requests.post(url, headers=headers, json=data)
+    if response.status_code == 200:
+        try:
+            content = response.json()["candidates"][0]["content"]["parts"][0]["text"]
+            print("✅ تم توليد الرسالة بنجاح.")
+            return content.strip()
+        except Exception as e:
+            print("❌ فشل في قراءة رد Gemini:", e)
+    else:
+        print(f"❌ خطأ من Gemini: {response.status_code} - {response.text}")
+    return None
+
+def post_to_facebook(message):
+    print("📤 جاري النشر على فيسبوك...")
+    post_url = f"https://graph.facebook.com/{PAGE_ID}/feed"
+    params = {
         "message": message,
         "access_token": ACCESS_TOKEN
     }
-    response = requests.post(url, data=payload)
-    return response.status_code == 200
 
-def save_replied():
-    with open(REPLIED_FILE, "w", encoding="utf-8") as f:
-        json.dump(replied_posts, f, ensure_ascii=False, indent=2)
+    response = requests.post(post_url, data=params)
+    if response.status_code == 200:
+        print("✅ تم النشر بنجاح على فيسبوك.")
+    else:
+        print(f"❌ فشل النشر على فيسبوك: {response.status_code} - {response.text}")
 
 def main():
-    posts = get_last_posts()
-    for post in posts:
-        post_id = post["id"]
-        if post_id in replied_posts:
-            continue
-        message = random.choice(MESSAGES)
-        success = reply_to_post(post_id, message)
-        if success:
-            print(f"✅ Replied to: {post_id}")
-            replied_posts.append(post_id)
-        else:
-            print(f"❌ Failed to reply: {post_id}")
-    save_replied()
+    message = generate_message()
+    if message:
+        print("\n📩 الرسالة التي تم توليدها:\n")
+        print(message)
+        print("\n----------------------------------------\n")
+        post_to_facebook(message)
+    else:
+        print("🚫 لم يتم توليد أو نشر الرسالة.")
 
 if __name__ == "__main__":
     main()
